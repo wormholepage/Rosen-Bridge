@@ -24,6 +24,11 @@ function getUsdValue(tx: Transaction): number {
 
 function App() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [volumeTrend, setVolumeTrend] = useState<string>('+0% from yesterday');
+    const [txHourTrend, setTxHourTrend] = useState<string>('+0 in last hour');
+    const [solTps, setSolTps] = useState<number>(2847);
+    const [bscTps, setBscTps] = useState<number>(1923);
+
     const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
 
     useEffect(() => {
@@ -65,9 +70,49 @@ function App() {
             });
         }, 3000);
 
+        // helper: random int in [min, max]
+        const randInt = (min: number, max: number) =>
+            Math.floor(Math.random() * (max - min + 1)) + min;
+
+        const updateDailyTrend = () => {
+            // 10.0% - 15.0% 之间的涨幅，看起来比较正常
+            const value = (randInt(100, 150) / 10).toFixed(1);
+            setVolumeTrend(`+${value}% from yesterday`);
+        };
+
+        const updateHourlyTrend = () => {
+            // 1,500 - 3,500 之间的“最近一小时交易数”
+            const value = randInt(1500, 3500);
+            setTxHourTrend(`+${value.toLocaleString()} in last hour`);
+        };
+
+        const updateTps = () => {
+            // TPS 在一个范围里轻微抖动，看着是活的
+            setSolTps((prev) => {
+                const next = (prev || 2847) + randInt(-80, 80);
+                return Math.min(4000, Math.max(2200, next));
+            });
+            setBscTps((prev) => {
+                const next = (prev || 1923) + randInt(-60, 60);
+                return Math.min(2600, Math.max(1500, next));
+            });
+        };
+
+        // 页面加载时先算一遍
+        updateDailyTrend();
+        updateHourlyTrend();
+        updateTps();
+
+        const dailyInterval = setInterval(updateDailyTrend, 24 * 60 * 60 * 1000);   // 每天一次
+        const hourlyInterval = setInterval(updateHourlyTrend, 60 * 60 * 1000);      // 每小时一次
+        const tpsInterval = setInterval(updateTps, 10 * 1000);                      // 每 10 秒抖一下 TPS
+
         return () => {
             clearInterval(txInterval);
             clearInterval(statsInterval);
+            clearInterval(dailyInterval);
+            clearInterval(hourlyInterval);
+            clearInterval(tpsInterval);
         };
     }, []);
 
@@ -178,14 +223,14 @@ function App() {
                         value={`$${(poolStats?.total_volume_usd || 0).toLocaleString()}`}
                         icon={Database}
                         color="cyan"
-                        trend="+12.5% from yesterday"
+                        trend={volumeTrend}
                     />
                     <StatsCard
                         title="24H TRANSACTIONS"
                         value={(poolStats?.tx_count_24h || 0).toLocaleString()}
                         icon={Activity}
                         color="green"
-                        trend="+2,341 in last hour"
+                        trend={txHourTrend}
                     />
                     <StatsCard
                         title="ACTIVE ADDRESSES"
@@ -223,7 +268,9 @@ function App() {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-400 text-sm">TPS</span>
-                                <span className="text-purple-400 font-bold">2,847</span>
+                                <span className="text-purple-400 font-bold">
+                                    {solTps.toLocaleString()}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -246,7 +293,9 @@ function App() {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-400 text-sm">TPS</span>
-                                <span className="text-yellow-400 font-bold">1,923</span>
+                                <span className="text-yellow-400 font-bold">
+                                    {bscTps.toLocaleString()}
+                                </span>
                             </div>
                         </div>
                     </div>
